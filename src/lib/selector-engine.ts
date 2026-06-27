@@ -1,4 +1,5 @@
 import type { SelectorMode } from "./playground-examples";
+import { queryPlaywrightCss } from "./playwright-css";
 
 export interface SelectorMatch {
   id: string;
@@ -190,7 +191,7 @@ export function evaluateSelector(
     let truncated = false;
 
     if (mode === "css") {
-      const matches = Array.from(document.querySelectorAll(selector));
+      const matches = queryPlaywrightCss(document, selector);
       totalMatches = matches.length;
       truncated = matches.length > PLAYGROUND_LIMITS.renderedMatches;
       nodes = matches.slice(0, PLAYGROUND_LIMITS.renderedMatches);

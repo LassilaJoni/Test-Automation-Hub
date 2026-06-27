@@ -19,6 +19,15 @@ test("evaluates selectors and highlights matches in the preview", async ({
   ).toBeVisible();
   await expect(page.getByText("1 match", { exact: true })).toBeVisible();
 
+  await page.getByRole("button", { name: "Playwright text" }).click();
+  await expect(page.getByLabel("CSS selector")).toHaveValue(
+    'css=button:has-text("Choose Pro")',
+  );
+  await expect(page.getByText("1 match", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Visible buttons" }).click();
+  await expect(page.getByText("3 matches", { exact: true })).toBeVisible();
+
   await page.getByRole("button", { name: "Pro plan features" }).click();
   await expect(page.getByText("3 matches", { exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "XPath" })).toHaveAttribute(

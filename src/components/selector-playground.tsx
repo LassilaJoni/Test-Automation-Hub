@@ -220,7 +220,7 @@ export function SelectorPlayground() {
                         value="css"
                         className="h-6 px-2.5 font-mono text-[10px]"
                       >
-                        CSS
+                        CSS / PW
                       </TabsTrigger>
                       <TabsTrigger
                         value="xpath"
@@ -251,7 +251,7 @@ export function SelectorPlayground() {
                         className="h-10 pl-9 font-mono text-xs"
                         placeholder={
                           mode === "css"
-                            ? '.card[data-state="active"]'
+                            ? 'css=button:has-text("Submit")'
                             : '//button[@type="submit"]'
                         }
                       />
@@ -281,6 +281,18 @@ export function SelectorPlayground() {
                       </TooltipContent>
                     </Tooltip>
                   </div>
+                  {mode === "css" && (
+                    <div>
+                      <p className="font-mono text-[9px] leading-4 text-muted-foreground">
+                        Playwright: css= · :has-text() · :text() · :text-is() ·
+                        :text-matches() · :visible · :nth-match() · css chains
+                      </p>
+                      <p className="text-[9px] leading-4 text-muted-foreground/70">
+                        :visible is inferred from hidden attributes and inline
+                        display/visibility styles in pasted static HTML.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -328,7 +340,7 @@ export function SelectorPlayground() {
                   </div>
                   <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
                     {mode === "css"
-                      ? "querySelectorAll"
+                      ? "Playwright CSS"
                       : "document.evaluate"}
                   </span>
                 </div>
@@ -377,7 +389,7 @@ export function SelectorPlayground() {
             Preview is sanitized and isolated in a sandbox
           </span>
           <span className="font-mono">
-            CSS Selectors Level 4 · XPath 1.0
+            Playwright CSS · CSS Selectors Level 4 · XPath 1.0
           </span>
         </div>
       </section>

@@ -53,6 +53,16 @@ export const EXAMPLES: Array<{
   selector: string;
 }> = [
   {
+    label: "Playwright text",
+    mode: "css",
+    selector: 'css=button:has-text("Choose Pro")',
+  },
+  {
+    label: "Visible buttons",
+    mode: "css",
+    selector: "css=button:visible",
+  },
+  {
     label: "Data attribute",
     mode: "css",
     selector: '[data-testid="choose-pro"]',
