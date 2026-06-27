@@ -31,3 +31,34 @@ test("evaluates selectors and highlights matches in the preview", async ({
   await expect(preview.locator("[data-testbench-match]")).toHaveCount(3);
   expect(browserErrors).toEqual([]);
 });
+
+test("serves deployment metadata and security headers", async (
+  { request },
+  testInfo,
+) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+
+  const home = await request.get("/");
+  const headers = home.headers();
+
+  expect(home.ok()).toBe(true);
+  expect(headers["content-security-policy"]).toContain(
+    "frame-ancestors 'none'",
+  );
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  expect(headers["x-powered-by"]).toBeUndefined();
+
+  const robots = await request.get("/robots.txt");
+  await expect(robots).toBeOK();
+  expect(await robots.text()).toContain("Sitemap:");
+
+  const sitemap = await request.get("/sitemap.xml");
+  await expect(sitemap).toBeOK();
+  expect(await sitemap.text()).toContain("<urlset");
+
+  const manifest = await request.get("/manifest.webmanifest");
+  await expect(manifest).toBeOK();
+  expect((await manifest.json()).short_name).toBe("TestBench");
+});

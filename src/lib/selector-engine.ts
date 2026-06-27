@@ -10,28 +10,51 @@ export interface SelectorMatch {
 
 export interface SelectorResult {
   matches: SelectorMatch[];
+  totalMatches?: number;
+  truncated?: boolean;
   scalar?: string;
   error?: string;
 }
 
+export const PLAYGROUND_LIMITS = {
+  htmlCharacters: 500_000,
+  selectorCharacters: 8_000,
+  renderedMatches: 500,
+} as const;
+
 const BLOCKED_ELEMENTS =
   "script, iframe, object, embed, link, meta, base, style, svg script";
 const RESOURCE_ATTRIBUTES = new Set([
+  "background",
+  "cite",
+  "data",
   "src",
+  "srcdoc",
   "srcset",
   "href",
   "xlink:href",
   "action",
   "formaction",
+  "ping",
   "poster",
   "style",
 ]);
 
-function getNodePath(node: Node, document: Document): number[] {
+function createInertDocument(html: string): Document {
+  const template = window.document.createElement("template");
+  template.innerHTML = html;
+
+  const inertDocument = window.document.implementation.createHTMLDocument("");
+  inertDocument.body.replaceChildren(template.content.cloneNode(true));
+
+  return inertDocument;
+}
+
+function getNodePath(node: Node, root: Node): number[] {
   const path: number[] = [];
   let current: Node | null = node;
 
-  while (current && current !== document) {
+  while (current && current !== root) {
     const parent: Node | null = current.parentNode;
     if (!parent) break;
     path.unshift(Array.prototype.indexOf.call(parent.childNodes, current));
@@ -97,33 +120,48 @@ function describeNode(node: Node, index: number, document: Document): SelectorMa
   };
 }
 
-function collectXPathNodes(result: XPathResult): Node[] {
+function collectXPathNodes(result: XPathResult): {
+  nodes: Node[];
+  totalMatches: number;
+  truncated: boolean;
+} {
   const nodes: Node[] = [];
+  const collectionLimit = PLAYGROUND_LIMITS.renderedMatches + 1;
 
   switch (result.resultType) {
     case XPathResult.UNORDERED_NODE_ITERATOR_TYPE:
     case XPathResult.ORDERED_NODE_ITERATOR_TYPE: {
       let node = result.iterateNext();
-      while (node) {
+      while (node && nodes.length < collectionLimit) {
         nodes.push(node);
         node = result.iterateNext();
       }
       break;
     }
     case XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE:
-    case XPathResult.ORDERED_NODE_SNAPSHOT_TYPE:
-      for (let index = 0; index < result.snapshotLength; index += 1) {
+    case XPathResult.ORDERED_NODE_SNAPSHOT_TYPE: {
+      const snapshotLimit = Math.min(result.snapshotLength, collectionLimit);
+      for (let index = 0; index < snapshotLimit; index += 1) {
         const node = result.snapshotItem(index);
         if (node) nodes.push(node);
       }
       break;
+    }
     case XPathResult.ANY_UNORDERED_NODE_TYPE:
     case XPathResult.FIRST_ORDERED_NODE_TYPE:
       if (result.singleNodeValue) nodes.push(result.singleNodeValue);
       break;
   }
 
-  return nodes;
+  const truncated = nodes.length > PLAYGROUND_LIMITS.renderedMatches;
+
+  return {
+    nodes: truncated
+      ? nodes.slice(0, PLAYGROUND_LIMITS.renderedMatches)
+      : nodes,
+    totalMatches: truncated ? PLAYGROUND_LIMITS.renderedMatches + 1 : nodes.length,
+    truncated,
+  };
 }
 
 export function evaluateSelector(
@@ -132,13 +170,30 @@ export function evaluateSelector(
   mode: SelectorMode,
 ): SelectorResult {
   if (!selector.trim()) return { matches: [] };
+  if (html.length > PLAYGROUND_LIMITS.htmlCharacters) {
+    return {
+      matches: [],
+      error: `HTML is limited to ${PLAYGROUND_LIMITS.htmlCharacters.toLocaleString()} characters.`,
+    };
+  }
+  if (selector.length > PLAYGROUND_LIMITS.selectorCharacters) {
+    return {
+      matches: [],
+      error: `Selectors are limited to ${PLAYGROUND_LIMITS.selectorCharacters.toLocaleString()} characters.`,
+    };
+  }
 
   try {
-    const document = new DOMParser().parseFromString(html, "text/html");
+    const document = createInertDocument(html);
     let nodes: Node[] = [];
+    let totalMatches = 0;
+    let truncated = false;
 
     if (mode === "css") {
-      nodes = Array.from(document.querySelectorAll(selector));
+      const matches = Array.from(document.querySelectorAll(selector));
+      totalMatches = matches.length;
+      truncated = matches.length > PLAYGROUND_LIMITS.renderedMatches;
+      nodes = matches.slice(0, PLAYGROUND_LIMITS.renderedMatches);
     } else {
       const result = document.evaluate(
         selector,
@@ -157,13 +212,18 @@ export function evaluateSelector(
       if (result.resultType === XPathResult.BOOLEAN_TYPE) {
         return { matches: [], scalar: String(result.booleanValue) };
       }
-      nodes = collectXPathNodes(result);
+      const xpathMatches = collectXPathNodes(result);
+      nodes = xpathMatches.nodes;
+      totalMatches = xpathMatches.totalMatches;
+      truncated = xpathMatches.truncated;
     }
 
     return {
       matches: nodes.map((node, index) =>
         describeNode(node, index, document),
       ),
+      totalMatches,
+      truncated,
     };
   } catch (error) {
     return {
@@ -177,7 +237,11 @@ export function buildSafePreview(
   html: string,
   matches: SelectorMatch[],
 ): string {
-  const document = new DOMParser().parseFromString(html, "text/html");
+  if (html.length > PLAYGROUND_LIMITS.htmlCharacters) {
+    return "<!doctype html><html><body><p>HTML is too large to preview safely.</p></body></html>";
+  }
+
+  const document = createInertDocument(html);
 
   for (const match of matches) {
     const node = resolveNodePath(document, match.nodePath);

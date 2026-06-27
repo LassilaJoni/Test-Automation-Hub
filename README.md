@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TestBench
 
-## Getting Started
+TestBench is a private, browser-based selector playground for test automation
+developers. Paste HTML, evaluate CSS selectors or XPath expressions, inspect
+matching nodes, and preview highlighted results without uploading the document
+to a server.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 App Router and React 19
+- TypeScript in strict mode
+- Tailwind CSS and shadcn/ui
+- CodeMirror 6
+- Vitest and Playwright
+- pnpm and Node.js 22
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quality checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:e2e
+```
 
-## Learn More
+The end-to-end suite serves the production build on port `3100`, so run
+`pnpm build` before `pnpm test:e2e`.
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy to Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Push this repository to GitHub, GitLab, or Bitbucket.
+2. Import the repository in the Vercel dashboard.
+3. Keep the detected Next.js framework settings and root directory.
+4. Optionally set `NEXT_PUBLIC_SITE_URL` to the final custom domain. When it is
+   omitted, Vercel's production URL is used for metadata and the sitemap.
+5. Deploy.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+No database, API keys, or other environment variables are required. The
+`package.json` pins Node.js 22 and pnpm 10.4.1 for reproducible Vercel builds.
+Vercel Git integration will create previews for branches and production
+deployments from the configured production branch.
 
-## Deploy on Vercel
+## Security model
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Selector evaluation runs only in the user's browser.
+- Markup is parsed in a detached document.
+- Preview markup has scripts, event handlers, navigation, embedded content,
+  remote-resource attributes, and author styles removed.
+- The preview runs in a sandboxed iframe without script or same-origin access.
+- Production responses include CSP, clickjacking, MIME-sniffing, referrer, and
+  browser-permission restrictions.
+- Input size and rendered-match limits protect the tab from accidental
+  resource exhaustion.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Optional environment variable
+
+Copy `.env.example` to `.env.local` only if you want canonical URLs to use a
+specific domain during local production builds.

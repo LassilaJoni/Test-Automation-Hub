@@ -39,7 +39,11 @@ import {
   EXAMPLES,
   type SelectorMode,
 } from "@/lib/playground-examples";
-import { buildSafePreview, evaluateSelector } from "@/lib/selector-engine";
+import {
+  buildSafePreview,
+  evaluateSelector,
+  PLAYGROUND_LIMITS,
+} from "@/lib/selector-engine";
 
 const FUTURE_TOOLS = [
   { label: "JSON formatter", icon: FileJson2 },
@@ -51,7 +55,9 @@ export function SelectorPlayground() {
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [mode, setMode] = useState<SelectorMode>("css");
   const [selectors, setSelectors] = useState(DEFAULT_SELECTORS);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
 
   const selector = selectors[mode];
   const result = useMemo(
@@ -62,12 +68,16 @@ export function SelectorPlayground() {
     () => buildSafePreview(html, result.matches),
     [html, result.matches],
   );
+  const totalMatches = result.totalMatches ?? result.matches.length;
+  const matchCountLabel = result.truncated
+    ? `${PLAYGROUND_LIMITS.renderedMatches}+ matches`
+    : `${totalMatches} ${totalMatches === 1 ? "match" : "matches"}`;
 
   useEffect(() => {
-    if (!copied) return;
-    const timeout = window.setTimeout(() => setCopied(false), 1600);
+    if (copyStatus === "idle") return;
+    const timeout = window.setTimeout(() => setCopyStatus("idle"), 1600);
     return () => window.clearTimeout(timeout);
-  }, [copied]);
+  }, [copyStatus]);
 
   function updateSelector(value: string) {
     setSelectors((current) => ({ ...current, [mode]: value }));
@@ -88,8 +98,12 @@ export function SelectorPlayground() {
   }
 
   async function copySelector() {
-    await navigator.clipboard.writeText(selector);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(selector);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
   }
 
   return (
@@ -251,7 +265,7 @@ export function SelectorPlayground() {
                           onClick={copySelector}
                           aria-label="Copy selector"
                         >
-                          {copied ? (
+                          {copyStatus === "copied" ? (
                             <Check className="size-4 text-primary" />
                           ) : (
                             <Clipboard className="size-4" />
@@ -259,7 +273,11 @@ export function SelectorPlayground() {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {copied ? "Copied" : "Copy selector"}
+                        {copyStatus === "copied"
+                          ? "Copied"
+                          : copyStatus === "error"
+                            ? "Copy failed"
+                            : "Copy selector"}
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -305,9 +323,7 @@ export function SelectorPlayground() {
                         ? "Invalid selector"
                         : result.scalar !== undefined
                           ? "Scalar result"
-                          : `${result.matches.length} ${
-                              result.matches.length === 1 ? "match" : "matches"
-                            }`}
+                          : matchCountLabel}
                     </span>
                   </div>
                   <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
@@ -332,7 +348,9 @@ export function SelectorPlayground() {
                         Matches
                         {!result.error && (
                           <span className="ml-1 rounded bg-background px-1 font-mono text-[9px]">
-                            {result.matches.length}
+                            {result.truncated
+                              ? `${PLAYGROUND_LIMITS.renderedMatches}+`
+                              : totalMatches}
                           </span>
                         )}
                       </TabsTrigger>

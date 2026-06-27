@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildSafePreview, evaluateSelector } from "./selector-engine";
+import {
+  buildSafePreview,
+  evaluateSelector,
+  PLAYGROUND_LIMITS,
+} from "./selector-engine";
 
 const HTML = `
   <main>
@@ -32,6 +36,29 @@ describe("evaluateSelector", () => {
 
     expect(result.matches).toHaveLength(0);
     expect(result.error).toBeTruthy();
+  });
+
+  it("caps rendered results to keep the interface responsive", () => {
+    const repeatedElements = Array.from(
+      { length: PLAYGROUND_LIMITS.renderedMatches + 1 },
+      (_, index) => `<i data-index="${index}"></i>`,
+    ).join("");
+    const result = evaluateSelector(repeatedElements, "i", "css");
+
+    expect(result.matches).toHaveLength(PLAYGROUND_LIMITS.renderedMatches);
+    expect(result.totalMatches).toBe(PLAYGROUND_LIMITS.renderedMatches + 1);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("rejects oversized documents before parsing", () => {
+    const result = evaluateSelector(
+      "x".repeat(PLAYGROUND_LIMITS.htmlCharacters + 1),
+      "*",
+      "css",
+    );
+
+    expect(result.matches).toHaveLength(0);
+    expect(result.error).toContain("limited");
   });
 });
 

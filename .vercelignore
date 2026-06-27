@@ -1,0 +1,8 @@
+.github
+.agents
+.codex
+coverage
+playwright-report
+test-results
+tests
+*.md
